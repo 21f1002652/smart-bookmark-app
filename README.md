@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bookmark App – README
 
-## Getting Started
+## Project Overview
 
-First, run the development server:
+This is a simple bookmark management application built using Next.js and Supabase.
+Users can add, view, and delete bookmarks. Each user only sees their own data.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## Problems Faced
+
+### 1. Delete Not Updating in Real Time
+
+When deleting a bookmark, the item was removed from the database but not from the UI unless the page was refreshed.
+
+### Cause
+
+Realtime DELETE events were not sending old row data from PostgreSQL.
+
+### Solution
+
+Set the table replica identity to FULL using:
+
+```sql
+ALTER TABLE public.bookmarks REPLICA IDENTITY FULL;
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then handled realtime events properly using `payload.old` for DELETE.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Realtime Payload Undefined Error
 
-## Learn More
+Console showed error:
+`Cannot read properties of undefined (reading 'payload')`
 
-To learn more about Next.js, take a look at the following resources:
+### Cause
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The realtime callback was assuming payload always exists.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Solution
 
-## Deploy on Vercel
+Added safe checks inside the subscription callback:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```ts
+if (!payload) return;
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Handled INSERT, UPDATE, DELETE separately.
+
+-------
+
+## What I Learned
+
+* How Supabase Realtime works with PostgreSQL replication
+* Importance of Replica Identity for DELETE events
+* Proper state management in React with realtime data
+* Debugging production build errors from console stack traces
