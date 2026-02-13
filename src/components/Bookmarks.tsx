@@ -34,21 +34,39 @@ export default function Bookmarks() {
 
   // Realtime subscription and initial fetch
   useEffect(() => {
-    fetchBookmarks();
+  let channel: any;
 
-    const channel = supabase
-      .channel("realtime-bookmarks")
+  const setupRealtime = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user;
+    if (!user) return;
+
+    await fetchBookmarks();
+
+    channel = supabase
+      .channel("user-bookmarks")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "bookmarks" },
-        fetchBookmarks
+        {
+          event: "*",
+          schema: "public",
+          table: "bookmarks",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchBookmarks();
+        }
       )
       .subscribe();
+  };
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  setupRealtime();
+
+  return () => {
+    if (channel) supabase.removeChannel(channel);
+  };
+}, []);
+
 
   // Add new bookmark
   const addBookmark = async () => {
