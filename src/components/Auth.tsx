@@ -9,15 +9,23 @@ export default function Auth() {
   const router = useRouter();
 
   useEffect(() => {
-    // Get current session
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user));
+    // 1. Check for existing session on mount
+    supabase.auth.getSession().then(({ data }) => {
+      const currentUser = data.session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        // Remove the fragment token from URL
+        router.replace(window.location.pathname);
+      }
+    });
 
-    // Listen for auth state changes
+    // 2. Listen for auth state changes (login/logout)
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        // Redirect after successful login
-        router.push("/");
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        // Remove the fragment token from URL
+        router.replace(window.location.pathname);
       }
     });
 
@@ -25,16 +33,16 @@ export default function Auth() {
   }, [router]);
 
   const signIn = async () => {
+    // Supabase will redirect browser to Google login
     await supabase.auth.signInWithOAuth({ provider: "google" });
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
   };
 
-  if (!user) {
-    return <button onClick={signIn}>Login with Google</button>;
-  }
+  if (!user) return <button onClick={signIn}>Login with Google</button>;
 
   return (
     <div>
